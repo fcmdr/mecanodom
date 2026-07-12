@@ -1,5 +1,7 @@
 # MécanoDom — Mécanicien à domicile
 
+[![CI](https://github.com/fcmdr/mecanodom/actions/workflows/ci.yml/badge.svg)](https://github.com/fcmdr/mecanodom/actions/workflows/ci.yml)
+
 Site vitrine + application de réservation pour un mécanicien automobile intervenant à domicile.
 
 Fonctionnalités :
