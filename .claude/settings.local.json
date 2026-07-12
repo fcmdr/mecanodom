@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx next build)",
+      "Bash(taskkill:*)",
+      "Bash(npx next dev)",
+      "Bash(npx prisma db seed:*)"
+    ]
+  }
+}

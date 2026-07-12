@@ -1,0 +1,121 @@
+// Schéma Prisma — Mécanicien à domicile
+// Docs: https://pris.ly/d/prisma-schema
+// Base : PostgreSQL. Les statuts de réservation sont des String validées côté app
+// (portabilité et simplicité ; pas d'enum natif pour éviter les migrations lourdes).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ServiceCategory {
+  id        Int       @id @default(autoincrement())
+  name      String
+  slug      String    @unique
+  order     Int       @default(0)
+  services  Service[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Service {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String?
+  priceCents  Int             // prix en centimes pour éviter les flottants
+  durationMin Int             // durée de la prestation en minutes
+  categoryId  Int
+  category    ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isActive    Boolean         @default(true)
+  order       Int             @default(0)
+  bookings    Booking[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([categoryId])
+}
+
+model WorkingHours {
+  id        Int      @id @default(autoincrement())
+  weekday   Int      // 0 = dimanche ... 6 = samedi
+  startTime String   // "HH:MM"
+  endTime   String   // "HH:MM"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([weekday])
+}
+
+model BlockedDate {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique // jour off exceptionnel (minuit UTC)
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+model BookingSettings {
+  id             Int      @id @default(1)
+  slotStepMin    Int      @default(30)
+  bufferMin      Int      @default(0)
+  minLeadHours   Int      @default(12)
+  maxAdvanceDays Int      @default(30)
+  updatedAt      DateTime @updatedAt
+}
+
+model CoverageZone {
+  id         Int      @id @default(autoincrement())
+  postalCode String   @unique
+  city       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Booking {
+  id            Int      @id @default(autoincrement())
+  serviceId     Int
+  service       Service  @relation(fields: [serviceId], references: [id])
+  startAt       DateTime // UTC
+  endAt         DateTime // UTC
+  status        String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | COMPLETED
+
+  // Infos client
+  customerName  String
+  customerEmail String
+  customerPhone String
+
+  // Véhicule
+  vehicleMake   String?
+  vehicleModel  String?
+  vehicleYear   Int?
+  vehiclePlate  String?
+
+  // Lieu d'intervention
+  address       String
+  postalCode    String
+  city          String
+
+  notes         String?
+
+  // Jeton d'annulation par le client (lien envoyé par e-mail). Nullable pour les
+  // réservations créées avant l'ajout de cette fonctionnalité.
+  cancelToken   String?  @unique
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([startAt])
+  @@index([status])
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}

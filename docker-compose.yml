@@ -1,0 +1,25 @@
+# Base PostgreSQL pour le développement local.
+# Port hôte 5433 (pour éviter tout conflit avec un Postgres déjà sur 5432).
+# Démarrer :  docker compose up -d
+# Arrêter :   docker compose down   (ajouter -v pour effacer les données)
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mecano_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mecano
+      POSTGRES_PASSWORD: mecano
+      POSTGRES_DB: mecanodb
+    ports:
+      - "5433:5432"
+    volumes:
+      - mecano_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mecano -d mecanodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mecano_pgdata:

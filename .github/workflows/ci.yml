@@ -1,0 +1,63 @@
+name: CI
+
+on: [push, pull_request]
+
+# Annule les runs obsolètes sur la même réf (branche / PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql://mecano:mecano@localhost:5432/mecanodb?schema=public
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mecano
+          POSTGRES_PASSWORD: mecano
+          POSTGRES_DB: mecanodb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mecano -d mecanodb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
