@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import {
   formatDateTimeFr,
   formatPrice,
@@ -21,7 +21,8 @@ export default async function BookingDetailPage({
   const bookingId = Number(id);
   if (!bookingId || Number.isNaN(bookingId)) notFound();
 
-  const booking = await prisma.booking.findUnique({
+  const { db } = await getTenantContext();
+  const booking = await db.booking.findUnique({
     where: { id: bookingId },
     include: { service: true },
   });

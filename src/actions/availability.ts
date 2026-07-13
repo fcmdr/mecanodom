@@ -35,7 +35,7 @@ export async function updateBookingSettings(
   await db.bookingSettings.upsert({
     where: { tenantId: tenant.id },
     update: parsed.data,
-    create: parsed.data, // tenantId injecté par le client scopé
+    create: { ...parsed.data, tenantId: tenant.id },
   });
   revalidateAvailability();
   return { success: true };
@@ -61,8 +61,8 @@ export async function addWorkingHours(
       fieldErrors: fe.fieldErrors,
     };
   }
-  const { db } = await getTenantContext();
-  await db.workingHours.create({ data: parsed.data });
+  const { tenant, db } = await getTenantContext();
+  await db.workingHours.create({ data: { ...parsed.data, tenantId: tenant.id } });
   revalidateAvailability();
   return { success: true };
 }
@@ -112,7 +112,7 @@ export async function addBlockedDate(
   await db.blockedDate.upsert({
     where: { tenantId_date: { tenantId: tenant.id, date } },
     update: { reason: parsed.data.reason || null },
-    create: { date, reason: parsed.data.reason || null },
+    create: { tenantId: tenant.id, date, reason: parsed.data.reason || null },
   });
   revalidateAvailability();
   return { success: true };

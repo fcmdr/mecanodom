@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { formatDateTimeFr, BOOKING_STATUS_LABELS } from "@/lib/utils";
 
 const STATUS_FILTERS = [
@@ -25,7 +25,8 @@ export default async function ReservationsPage({
   const { status } = await searchParams;
   const where = status ? { status } : {};
 
-  const bookings = await prisma.booking.findMany({
+  const { db } = await getTenantContext();
+  const bookings = await db.booking.findMany({
     where,
     orderBy: { startAt: "desc" },
     include: { service: true },

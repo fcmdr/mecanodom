@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { siteConfig } from "@/lib/site";
 import { formatPrice, formatDuration } from "@/lib/utils";
 
 export default async function HomePage() {
-  const featured = await prisma.service.findMany({
+  const { db } = await getTenantContext();
+  const featured = await db.service.findMany({
     where: { isActive: true },
     orderBy: [{ category: { order: "asc" } }, { order: "asc" }],
     include: { category: true },
     take: 4,
   });
 
-  const zones = await prisma.coverageZone.findMany({
+  const zones = await db.coverageZone.findMany({
     where: { isActive: true },
     orderBy: { postalCode: "asc" },
   });

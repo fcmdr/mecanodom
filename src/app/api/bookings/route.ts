@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const data = parsed.data;
 
   // Tenant courant + client Prisma scopé (tenantId injecté automatiquement)
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
 
   // 2. Re-vérification de la couverture côté serveur
   const coverage = await checkCoverage(db, data.postalCode);
@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 
       return tx.booking.create({
         data: {
+          tenantId: tenant.id,
           serviceId: service.id,
           startAt: startUtc,
           endAt: endUtc,

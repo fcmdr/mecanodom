@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { formatPrice, formatDuration } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ServicesPage() {
-  const categories = await prisma.serviceCategory.findMany({
+  const { db } = await getTenantContext();
+  const categories = await db.serviceCategory.findMany({
     orderBy: { order: "asc" },
     include: {
       services: {

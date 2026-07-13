@@ -29,7 +29,7 @@ export async function createCategory(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
   const existing = await db.serviceCategory.findFirst({
     where: { slug: parsed.data.slug },
   });
@@ -37,7 +37,7 @@ export async function createCategory(
     return { error: "Ce slug est déjà utilisé." };
   }
 
-  await db.serviceCategory.create({ data: parsed.data });
+  await db.serviceCategory.create({ data: { ...parsed.data, tenantId: tenant.id } });
   revalidateServices();
   return { success: true };
 }
@@ -97,10 +97,11 @@ export async function createService(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const { priceEuros, description, ...rest } = parsed.data;
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
   await db.service.create({
     data: {
       ...rest,
+      tenantId: tenant.id,
       description: description || null,
       priceCents: Math.round(priceEuros * 100),
     },

@@ -1,3 +1,6 @@
+// La répartition dynamique sur les délégués Prisma (indexation par nom de modèle,
+// manipulation générique des `args`) impose un typage `any` local et assumé.
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import "server-only";
 import { prisma } from "./prisma";
 

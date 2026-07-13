@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { formatPrice, formatDuration } from "@/lib/utils";
 import { CategoryForm } from "@/components/admin/CategoryForm";
 import { ServiceForm } from "@/components/admin/ServiceForm";
@@ -14,7 +14,8 @@ import {
 } from "@/actions/services";
 
 export default async function AdminServicesPage() {
-  const categories = await prisma.serviceCategory.findMany({
+  const { db } = await getTenantContext();
+  const categories = await db.serviceCategory.findMany({
     orderBy: { order: "asc" },
     include: { services: { orderBy: { order: "asc" } } },
   });

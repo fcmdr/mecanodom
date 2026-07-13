@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { MapSection } from "@/components/MapSection";
 import { CoverageChecker } from "@/components/CoverageChecker";
 
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ZonePage() {
-  const zones = await prisma.coverageZone.findMany({
+  const { db } = await getTenantContext();
+  const zones = await db.coverageZone.findMany({
     where: { isActive: true },
     orderBy: { postalCode: "asc" },
   });

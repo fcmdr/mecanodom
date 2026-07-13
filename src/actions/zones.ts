@@ -27,13 +27,13 @@ export async function createZone(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const postalCode = normalizePostalCode(parsed.data.postalCode);
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
   const existing = await db.coverageZone.findFirst({ where: { postalCode } });
   if (existing) {
     return { error: "Ce code postal existe déjà." };
   }
   await db.coverageZone.create({
-    data: { postalCode, city: parsed.data.city, isActive: true },
+    data: { tenantId: tenant.id, postalCode, city: parsed.data.city, isActive: true },
   });
   revalidateZones();
   return { success: true };

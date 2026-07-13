@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { BookingWizard } from "@/components/booking/BookingWizard";
 
 export const metadata: Metadata = {
@@ -17,8 +17,9 @@ export default async function BookingPage({
   const { service } = await searchParams;
   const initialServiceId = service ? Number(service) : undefined;
 
+  const { db } = await getTenantContext();
   const [categories, settings] = await Promise.all([
-    prisma.serviceCategory.findMany({
+    db.serviceCategory.findMany({
       orderBy: { order: "asc" },
       include: {
         services: {
@@ -34,7 +35,7 @@ export default async function BookingPage({
         },
       },
     }),
-    prisma.bookingSettings.findUnique({ where: { id: 1 } }),
+    db.bookingSettings.findFirst(),
   ]);
 
   const withServices = categories.filter((c) => c.services.length > 0);

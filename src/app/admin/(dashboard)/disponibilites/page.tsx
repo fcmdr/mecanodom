@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { WEEKDAY_LABELS, formatDateFr } from "@/lib/utils";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { WorkingHoursForm } from "@/components/admin/WorkingHoursForm";
@@ -16,10 +16,11 @@ import {
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export default async function AdminAvailabilityPage() {
+  const { db } = await getTenantContext();
   const [settings, workingHours, blockedDates] = await Promise.all([
-    prisma.bookingSettings.findUnique({ where: { id: 1 } }),
-    prisma.workingHours.findMany({ orderBy: [{ weekday: "asc" }, { startTime: "asc" }] }),
-    prisma.blockedDate.findMany({ orderBy: { date: "asc" } }),
+    db.bookingSettings.findFirst(),
+    db.workingHours.findMany({ orderBy: [{ weekday: "asc" }, { startTime: "asc" }] }),
+    db.blockedDate.findMany({ orderBy: { date: "asc" } }),
   ]);
 
   const effectiveSettings = settings ?? {

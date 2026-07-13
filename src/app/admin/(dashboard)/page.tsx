@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import {
   formatDateTimeFr,
   formatPrice,
@@ -8,16 +8,17 @@ import {
 
 export default async function AdminDashboardPage() {
   const now = new Date();
+  const { db } = await getTenantContext();
 
   const [pending, upcoming, totalServices, totalZones, recent] =
     await Promise.all([
-      prisma.booking.count({ where: { status: "PENDING" } }),
-      prisma.booking.count({
+      db.booking.count({ where: { status: "PENDING" } }),
+      db.booking.count({
         where: { startAt: { gte: now }, status: { in: ["PENDING", "CONFIRMED"] } },
       }),
-      prisma.service.count({ where: { isActive: true } }),
-      prisma.coverageZone.count({ where: { isActive: true } }),
-      prisma.booking.findMany({
+      db.service.count({ where: { isActive: true } }),
+      db.coverageZone.count({ where: { isActive: true } }),
+      db.booking.findMany({
         where: { startAt: { gte: now }, status: { in: ["PENDING", "CONFIRMED"] } },
         orderBy: { startAt: "asc" },
         take: 8,

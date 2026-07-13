@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fromZonedTime } from "date-fns-tz";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { toParisDateKey } from "@/lib/availability";
 import {
   TIME_ZONE,
@@ -68,7 +68,8 @@ export default async function AdminCalendarPage({
   const startUtc = fromZonedTime(`${monday}T00:00:00`, TIME_ZONE);
   const endUtc = fromZonedTime(`${addDaysKey(monday, 7)}T00:00:00`, TIME_ZONE);
 
-  const bookings = await prisma.booking.findMany({
+  const { db } = await getTenantContext();
+  const bookings = await db.booking.findMany({
     where: { startAt: { gte: startUtc, lt: endUtc } },
     orderBy: { startAt: "asc" },
     include: { service: true },

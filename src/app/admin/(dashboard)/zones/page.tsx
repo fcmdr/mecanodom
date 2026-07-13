@@ -1,10 +1,11 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { ZoneForm } from "@/components/admin/ZoneForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { createZone, updateZone, deleteZone, toggleZone } from "@/actions/zones";
 
 export default async function AdminZonesPage() {
-  const zones = await prisma.coverageZone.findMany({
+  const { db } = await getTenantContext();
+  const zones = await db.coverageZone.findMany({
     orderBy: { postalCode: "asc" },
   });
 
