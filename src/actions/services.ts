@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { getTenantContext } from "@/lib/tenant";
 import { categorySchema, serviceSchema } from "@/lib/validators";
 import type { ActionState } from "./types";
 
@@ -29,14 +29,15 @@ export async function createCategory(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  const existing = await prisma.serviceCategory.findUnique({
+  const { db } = await getTenantContext();
+  const existing = await db.serviceCategory.findFirst({
     where: { slug: parsed.data.slug },
   });
   if (existing) {
     return { error: "Ce slug est déjà utilisé." };
   }
 
-  await prisma.serviceCategory.create({ data: parsed.data });
+  await db.serviceCategory.create({ data: parsed.data });
   revalidateServices();
   return { success: true };
 }
@@ -56,7 +57,8 @@ export async function updateCategory(
   if (!parsed.success) {
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  await prisma.serviceCategory.update({ where: { id }, data: parsed.data });
+  const { db } = await getTenantContext();
+  await db.serviceCategory.update({ where: { id }, data: parsed.data });
   revalidateServices();
   return { success: true };
 }
@@ -65,7 +67,8 @@ export async function deleteCategory(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.serviceCategory.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.serviceCategory.delete({ where: { id } });
     revalidateServices();
   }
 }
@@ -94,7 +97,8 @@ export async function createService(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const { priceEuros, description, ...rest } = parsed.data;
-  await prisma.service.create({
+  const { db } = await getTenantContext();
+  await db.service.create({
     data: {
       ...rest,
       description: description || null,
@@ -117,7 +121,8 @@ export async function updateService(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const { priceEuros, description, ...rest } = parsed.data;
-  await prisma.service.update({
+  const { db } = await getTenantContext();
+  await db.service.update({
     where: { id },
     data: {
       ...rest,
@@ -133,7 +138,8 @@ export async function deleteService(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.service.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.service.delete({ where: { id } });
     revalidateServices();
   }
 }
@@ -142,9 +148,10 @@ export async function toggleService(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (!id) return;
-  const service = await prisma.service.findUnique({ where: { id } });
+  const { db } = await getTenantContext();
+  const service = await db.service.findUnique({ where: { id } });
   if (service) {
-    await prisma.service.update({
+    await db.service.update({
       where: { id },
       data: { isActive: !service.isActive },
     });

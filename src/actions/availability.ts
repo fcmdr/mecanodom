@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { getTenantContext } from "@/lib/tenant";
 import {
   bookingSettingsSchema,
   workingHoursSchema,
@@ -31,10 +31,11 @@ export async function updateBookingSettings(
   if (!parsed.success) {
     return { error: "Paramètres invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  await prisma.bookingSettings.upsert({
-    where: { id: 1 },
+  const { tenant, db } = await getTenantContext();
+  await db.bookingSettings.upsert({
+    where: { tenantId: tenant.id },
     update: parsed.data,
-    create: { id: 1, ...parsed.data },
+    create: parsed.data, // tenantId injecté par le client scopé
   });
   revalidateAvailability();
   return { success: true };
@@ -60,7 +61,8 @@ export async function addWorkingHours(
       fieldErrors: fe.fieldErrors,
     };
   }
-  await prisma.workingHours.create({ data: parsed.data });
+  const { db } = await getTenantContext();
+  await db.workingHours.create({ data: parsed.data });
   revalidateAvailability();
   return { success: true };
 }
@@ -69,7 +71,8 @@ export async function deleteWorkingHours(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.workingHours.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.workingHours.delete({ where: { id } });
     revalidateAvailability();
   }
 }
@@ -78,9 +81,10 @@ export async function toggleWorkingHours(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (!id) return;
-  const wh = await prisma.workingHours.findUnique({ where: { id } });
+  const { db } = await getTenantContext();
+  const wh = await db.workingHours.findUnique({ where: { id } });
   if (wh) {
-    await prisma.workingHours.update({
+    await db.workingHours.update({
       where: { id },
       data: { isActive: !wh.isActive },
     });
@@ -104,8 +108,9 @@ export async function addBlockedDate(
   }
   const [y, m, d] = parsed.data.date.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
-  await prisma.blockedDate.upsert({
-    where: { date },
+  const { tenant, db } = await getTenantContext();
+  await db.blockedDate.upsert({
+    where: { tenantId_date: { tenantId: tenant.id, date } },
     update: { reason: parsed.data.reason || null },
     create: { date, reason: parsed.data.reason || null },
   });
@@ -117,7 +122,8 @@ export async function deleteBlockedDate(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.blockedDate.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.blockedDate.delete({ where: { id } });
     revalidateAvailability();
   }
 }

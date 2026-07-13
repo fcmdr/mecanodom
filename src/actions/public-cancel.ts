@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import {
   sendStatusChangeEmail,
   sendClientCancellationAdminNotice,
@@ -18,7 +18,8 @@ export async function cancelBookingByToken(formData: FormData): Promise<void> {
   const token = String(formData.get("token") ?? "");
   if (!id || !token) return;
 
-  const booking = await prisma.booking.findUnique({
+  const { db } = await getTenantContext();
+  const booking = await db.booking.findUnique({
     where: { id },
     include: { service: true },
   });
@@ -30,7 +31,7 @@ export async function cancelBookingByToken(formData: FormData): Promise<void> {
   if (booking.status === "CANCELLED" || booking.status === "COMPLETED") return;
   if (booking.startAt.getTime() <= Date.now()) return;
 
-  await prisma.booking.update({
+  await db.booking.update({
     where: { id },
     data: { status: "CANCELLED" },
   });

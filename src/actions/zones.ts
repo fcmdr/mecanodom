@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { getTenantContext } from "@/lib/tenant";
 import { coverageZoneSchema } from "@/lib/validators";
 import { normalizePostalCode } from "@/lib/coverage";
 import type { ActionState } from "./types";
@@ -27,11 +27,12 @@ export async function createZone(
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const postalCode = normalizePostalCode(parsed.data.postalCode);
-  const existing = await prisma.coverageZone.findUnique({ where: { postalCode } });
+  const { db } = await getTenantContext();
+  const existing = await db.coverageZone.findFirst({ where: { postalCode } });
   if (existing) {
     return { error: "Ce code postal existe déjà." };
   }
-  await prisma.coverageZone.create({
+  await db.coverageZone.create({
     data: { postalCode, city: parsed.data.city, isActive: true },
   });
   revalidateZones();
@@ -53,7 +54,8 @@ export async function updateZone(
   if (!parsed.success) {
     return { error: "Champs invalides", fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  await prisma.coverageZone.update({
+  const { db } = await getTenantContext();
+  await db.coverageZone.update({
     where: { id },
     data: {
       postalCode: normalizePostalCode(parsed.data.postalCode),
@@ -69,7 +71,8 @@ export async function deleteZone(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.coverageZone.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.coverageZone.delete({ where: { id } });
     revalidateZones();
   }
 }
@@ -78,9 +81,10 @@ export async function toggleZone(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (!id) return;
-  const zone = await prisma.coverageZone.findUnique({ where: { id } });
+  const { db } = await getTenantContext();
+  const zone = await db.coverageZone.findUnique({ where: { id } });
   if (zone) {
-    await prisma.coverageZone.update({
+    await db.coverageZone.update({
       where: { id },
       data: { isActive: !zone.isActive },
     });

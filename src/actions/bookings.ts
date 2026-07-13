@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { getTenantContext } from "@/lib/tenant";
 import { sendStatusChangeEmail } from "@/lib/mail";
 import { buildCancelUrl } from "@/lib/urls";
 
@@ -16,7 +16,8 @@ export async function updateBookingStatus(formData: FormData): Promise<void> {
   const status = String(formData.get("status") ?? "");
   if (!id || !VALID_STATUSES.includes(status)) return;
 
-  const existing = await prisma.booking.findUnique({
+  const { db } = await getTenantContext();
+  const existing = await db.booking.findUnique({
     where: { id },
     include: { service: true },
   });
@@ -25,7 +26,7 @@ export async function updateBookingStatus(formData: FormData): Promise<void> {
   // Rien à faire si le statut est inchangé.
   if (existing.status === status) return;
 
-  await prisma.booking.update({ where: { id }, data: { status } });
+  await db.booking.update({ where: { id }, data: { status } });
 
   // Notification client (non bloquante) pour confirmé / annulé.
   if ((NOTIFY_STATUSES as readonly string[]).includes(status)) {
@@ -66,7 +67,8 @@ export async function deleteBooking(formData: FormData): Promise<void> {
   await requireAdmin();
   const id = Number(formData.get("id"));
   if (id) {
-    await prisma.booking.delete({ where: { id } });
+    const { db } = await getTenantContext();
+    await db.booking.delete({ where: { id } });
     revalidatePath("/admin/reservations");
     revalidatePath("/admin");
   }
