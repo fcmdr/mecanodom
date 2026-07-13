@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, getTenantBaseUrl } from "@/lib/tenant";
 import { sendStatusChangeEmail } from "@/lib/mail";
 import { buildCancelUrl } from "@/lib/urls";
 
@@ -16,7 +16,7 @@ export async function updateBookingStatus(formData: FormData): Promise<void> {
   const status = String(formData.get("status") ?? "");
   if (!id || !VALID_STATUSES.includes(status)) return;
 
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
   const existing = await db.booking.findUnique({
     where: { id },
     include: { service: true },
@@ -34,7 +34,9 @@ export async function updateBookingStatus(formData: FormData): Promise<void> {
       .filter(Boolean)
       .join(" ")
       .trim();
+    const baseUrl = await getTenantBaseUrl();
     await sendStatusChangeEmail(
+      tenant,
       {
         id: existing.id,
         serviceName: existing.service.name,
@@ -51,7 +53,7 @@ export async function updateBookingStatus(formData: FormData): Promise<void> {
         notes: existing.notes,
         cancelUrl:
           status === "CONFIRMED" && existing.cancelToken
-            ? buildCancelUrl(existing.id, existing.cancelToken)
+            ? buildCancelUrl(baseUrl, existing.id, existing.cancelToken)
             : null,
       },
       status as "CONFIRMED" | "CANCELLED",

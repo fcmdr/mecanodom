@@ -23,6 +23,7 @@ const scopedDb = {
 
 vi.mock("@/lib/tenant", () => ({
   getTenantContext: vi.fn(async () => ({ tenant: { id: 1 }, db: scopedDb })),
+  getTenantBaseUrl: vi.fn(async () => "https://x"),
 }));
 
 vi.mock("@/lib/coverage", () => ({ checkCoverage: vi.fn() }));

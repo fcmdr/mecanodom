@@ -18,7 +18,7 @@ export async function cancelBookingByToken(formData: FormData): Promise<void> {
   const token = String(formData.get("token") ?? "");
   if (!id || !token) return;
 
-  const { db } = await getTenantContext();
+  const { tenant, db } = await getTenantContext();
   const booking = await db.booking.findUnique({
     where: { id },
     include: { service: true },
@@ -58,8 +58,8 @@ export async function cancelBookingByToken(formData: FormData): Promise<void> {
   };
 
   // Notifications (non bloquantes)
-  await sendStatusChangeEmail(emailData, "CANCELLED");
-  await sendClientCancellationAdminNotice(emailData);
+  await sendStatusChangeEmail(tenant, emailData, "CANCELLED");
+  await sendClientCancellationAdminNotice(tenant, emailData);
 
   revalidatePath("/admin/reservations");
   revalidatePath(`/admin/reservations/${id}`);

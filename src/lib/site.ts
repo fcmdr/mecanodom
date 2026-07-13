@@ -1,18 +1,6 @@
-// Informations de l'entreprise, centralisées et faciles à modifier.
-export const siteConfig = {
-  name: "MécanoDom",
-  tagline: "Votre mécanicien à domicile",
-  description:
-    "Entretien et réparation automobile à domicile en Île-de-France. Prise de rendez-vous en ligne, tarifs transparents, intervention chez vous.",
-  phone: "01 23 45 67 89",
-  phoneHref: "tel:+33123456789",
-  email: "contact@mecanodom.fr",
-  emailHref: "mailto:contact@mecanodom.fr",
-  address: "Île-de-France",
-  hoursSummary: "Lun–Ven 8h–18h · Sam 9h–13h",
-  // Centre par défaut de la carte (Paris)
-  mapCenter: { lat: 48.8566, lng: 2.3522 },
-};
+// Liens de navigation et informations légales statiques. Les informations
+// d'entreprise (nom, coordonnées, carte…) proviennent désormais du tenant via
+// getSiteConfig() (voir src/lib/tenant.ts).
 
 export const navLinks = [
   { href: "/", label: "Accueil" },

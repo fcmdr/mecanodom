@@ -1,16 +1,49 @@
 import "server-only";
 import { Resend } from "resend";
+import type { Tenant } from "@prisma/client";
 import { formatDateTimeFr, formatPrice, formatDuration } from "./utils";
-import { siteConfig } from "./site";
 
 // Envoi d'e-mails via Resend. Dégradation propre : si RESEND_API_KEY est absent,
 // les envois sont ignorés (log) sans jamais faire échouer la réservation.
+// L'identité (nom, coordonnées, expéditeur, destinataire) provient du tenant,
+// avec repli sur les variables d'environnement historiques.
 
 const apiKey = process.env.RESEND_API_KEY;
 const resend = apiKey ? new Resend(apiKey) : null;
 
-const FROM = process.env.MAIL_FROM || "MécanoDom <onboarding@resend.dev>";
-const ADMIN_TO = process.env.MAIL_ADMIN;
+/** Identité de marque utilisée dans le corps des e-mails, dérivée du tenant. */
+type Brand = {
+  name: string;
+  tagline: string;
+  phone: string;
+  phoneHref: string;
+  email: string;
+};
+
+function brandFor(tenant: Tenant): Brand {
+  const phone = tenant.phone ?? "";
+  return {
+    name: tenant.name,
+    tagline: tenant.tagline ?? "",
+    phone,
+    phoneHref: "tel:+33" + phone.replace(/\D/g, "").replace(/^0/, ""),
+    email: tenant.email ?? "",
+  };
+}
+
+/** Adresse d'expéditeur : nom du tenant, adresse via env (repli historique). */
+function fromFor(tenant: Tenant): string {
+  if (tenant.mailFromName) {
+    const addr = process.env.MAIL_FROM_ADDRESS || "onboarding@resend.dev";
+    return `${tenant.mailFromName} <${addr}>`;
+  }
+  return process.env.MAIL_FROM || `${tenant.name} <onboarding@resend.dev>`;
+}
+
+/** Destinataire des alertes mécanicien : tenant.notificationEmail sinon MAIL_ADMIN. */
+function adminToFor(tenant: Tenant): string | undefined {
+  return tenant.notificationEmail ?? process.env.MAIL_ADMIN ?? undefined;
+}
 
 export type BookingEmailData = {
   id: number;
@@ -57,13 +90,18 @@ function detailsTable(b: BookingEmailData): string {
   </table>`;
 }
 
-function shell(title: string, intro: string, inner: string): string {
+function shell(
+  brand: Brand,
+  title: string,
+  intro: string,
+  inner: string,
+): string {
   return `<!DOCTYPE html>
 <html lang="fr"><body style="margin:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
     <div style="background:#0f172a;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
-      <span style="font-size:18px;font-weight:800;">${siteConfig.name}</span>
-      <span style="color:#fb923c;font-size:14px;"> — ${siteConfig.tagline}</span>
+      <span style="font-size:18px;font-weight:800;">${brand.name}</span>
+      <span style="color:#fb923c;font-size:14px;"> — ${brand.tagline}</span>
     </div>
     <div style="background:#fff;padding:24px;border-radius:0 0 12px 12px;">
       <h1 style="margin:0 0 8px;font-size:20px;color:#0f172a;">${title}</h1>
@@ -71,28 +109,30 @@ function shell(title: string, intro: string, inner: string): string {
       ${inner}
     </div>
     <p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:16px;">
-      ${siteConfig.name} · ${siteConfig.phone} · ${siteConfig.email}
+      ${brand.name} · ${brand.phone} · ${brand.email}
     </p>
   </div>
 </body></html>`;
 }
 
-function clientHtml(b: BookingEmailData): string {
+function clientHtml(brand: Brand, b: BookingEmailData): string {
   const firstName = b.customerName.split(" ")[0];
   return shell(
+    brand,
     "Votre demande de rendez-vous est enregistrée",
     `Bonjour ${firstName}, merci pour votre demande. Elle est en cours de traitement : nous vous recontacterons rapidement pour la confirmer.`,
     `${detailsTable(b)}
      <p style="margin:20px 0 0;color:#475569;font-size:13px;">
        Une question ou un imprévu ? Contactez-nous au
-       <a href="${siteConfig.phoneHref}" style="color:#ea580c;">${siteConfig.phone}</a>.
+       <a href="${brand.phoneHref}" style="color:#ea580c;">${brand.phone}</a>.
      </p>
      ${b.cancelUrl ? cancelButton(b.cancelUrl) : ""}`,
   );
 }
 
-function adminHtml(b: BookingEmailData): string {
+function adminHtml(brand: Brand, b: BookingEmailData): string {
   return shell(
+    brand,
     "Nouvelle demande de rendez-vous",
     `Une nouvelle réservation vient d'être créée (statut : en attente).`,
     `${detailsTable(b)}
@@ -106,29 +146,32 @@ function adminHtml(b: BookingEmailData): string {
 }
 
 function statusClientHtml(
+  brand: Brand,
   b: BookingEmailData,
   status: "CONFIRMED" | "CANCELLED",
 ): string {
   const firstName = b.customerName.split(" ")[0];
   if (status === "CONFIRMED") {
     return shell(
+      brand,
       "Votre rendez-vous est confirmé",
       `Bonjour ${firstName}, bonne nouvelle : votre rendez-vous est confirmé. Notre mécanicien interviendra à l'adresse et à l'horaire ci-dessous.`,
       `${detailsTable(b)}
        <p style="margin:20px 0 0;color:#475569;font-size:13px;">
          Merci de préparer l'accès au véhicule. Pour toute modification, appelez-nous au
-         <a href="${siteConfig.phoneHref}" style="color:#ea580c;">${siteConfig.phone}</a>.
+         <a href="${brand.phoneHref}" style="color:#ea580c;">${brand.phone}</a>.
        </p>
        ${b.cancelUrl ? cancelButton(b.cancelUrl) : ""}`,
     );
   }
   return shell(
+    brand,
     "Votre rendez-vous a été annulé",
     `Bonjour ${firstName}, votre rendez-vous ci-dessous a été annulé. Si vous le souhaitez, vous pouvez reprogrammer une intervention à tout moment.`,
     `${detailsTable(b)}
      <p style="margin:20px 0 0;color:#475569;font-size:13px;">
        Pour reprendre rendez-vous, rendez-vous sur notre site ou appelez le
-       <a href="${siteConfig.phoneHref}" style="color:#ea580c;">${siteConfig.phone}</a>.
+       <a href="${brand.phoneHref}" style="color:#ea580c;">${brand.phone}</a>.
      </p>`,
   );
 }
@@ -138,6 +181,7 @@ function statusClientHtml(
  * Ne lève jamais : toute erreur est journalisée.
  */
 export async function sendStatusChangeEmail(
+  tenant: Tenant,
   b: BookingEmailData,
   status: "CONFIRMED" | "CANCELLED",
 ): Promise<void> {
@@ -148,17 +192,18 @@ export async function sendStatusChangeEmail(
     return;
   }
 
+  const brand = brandFor(tenant);
   const subject =
     status === "CONFIRMED"
-      ? `Rendez-vous confirmé #${b.id} — ${siteConfig.name}`
-      : `Rendez-vous annulé #${b.id} — ${siteConfig.name}`;
+      ? `Rendez-vous confirmé #${b.id} — ${brand.name}`
+      : `Rendez-vous annulé #${b.id} — ${brand.name}`;
 
   try {
     const res = await resend.emails.send({
-      from: FROM,
+      from: fromFor(tenant),
       to: b.customerEmail,
       subject,
-      html: statusClientHtml(b, status),
+      html: statusClientHtml(brand, b, status),
     });
     if (res.error) console.error("[mail] Erreur Resend (statut):", res.error);
   } catch (err) {
@@ -166,8 +211,9 @@ export async function sendStatusChangeEmail(
   }
 }
 
-function clientCancelAdminHtml(b: BookingEmailData): string {
+function clientCancelAdminHtml(brand: Brand, b: BookingEmailData): string {
   return shell(
+    brand,
     "Annulation par le client",
     `Le client a annulé sa réservation depuis le lien reçu par e-mail. Le créneau est de nouveau disponible.`,
     `${detailsTable(b)}
@@ -184,16 +230,18 @@ function clientCancelAdminHtml(b: BookingEmailData): string {
  * Ne lève jamais.
  */
 export async function sendClientCancellationAdminNotice(
+  tenant: Tenant,
   b: BookingEmailData,
 ): Promise<void> {
-  if (!resend || !ADMIN_TO) return;
+  const adminTo = adminToFor(tenant);
+  if (!resend || !adminTo) return;
   try {
     const res = await resend.emails.send({
-      from: FROM,
-      to: ADMIN_TO,
+      from: fromFor(tenant),
+      to: adminTo,
       replyTo: b.customerEmail,
       subject: `Annulation client — RDV #${b.id} (${b.serviceName})`,
-      html: clientCancelAdminHtml(b),
+      html: clientCancelAdminHtml(brandFor(tenant), b),
     });
     if (res.error) console.error("[mail] Erreur Resend (annul. admin):", res.error);
   } catch (err) {
@@ -205,7 +253,10 @@ export async function sendClientCancellationAdminNotice(
  * Envoie les e-mails de réservation (confirmation client + alerte mécanicien).
  * Ne lève jamais : toute erreur est journalisée pour ne pas bloquer la réservation.
  */
-export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
+export async function sendBookingEmails(
+  tenant: Tenant,
+  b: BookingEmailData,
+): Promise<void> {
   if (!resend) {
     console.warn(
       "[mail] RESEND_API_KEY absent : e-mails de réservation désactivés.",
@@ -213,27 +264,30 @@ export async function sendBookingEmails(b: BookingEmailData): Promise<void> {
     return;
   }
 
+  const brand = brandFor(tenant);
+  const from = fromFor(tenant);
+  const adminTo = adminToFor(tenant);
   const jobs: Promise<unknown>[] = [];
 
   // Confirmation client
   jobs.push(
     resend.emails.send({
-      from: FROM,
+      from,
       to: b.customerEmail,
-      subject: `Votre demande de rendez-vous #${b.id} — ${siteConfig.name}`,
-      html: clientHtml(b),
+      subject: `Votre demande de rendez-vous #${b.id} — ${brand.name}`,
+      html: clientHtml(brand, b),
     }),
   );
 
   // Alerte mécanicien
-  if (ADMIN_TO) {
+  if (adminTo) {
     jobs.push(
       resend.emails.send({
-        from: FROM,
-        to: ADMIN_TO,
+        from,
+        to: adminTo,
         replyTo: b.customerEmail,
         subject: `Nouvelle réservation #${b.id} — ${b.serviceName}`,
-        html: adminHtml(b),
+        html: adminHtml(brand, b),
       }),
     );
   } else {

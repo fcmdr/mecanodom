@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, getTenantBaseUrl } from "@/lib/tenant";
 import { bookingCreateSchema } from "@/lib/validators";
 import { checkCoverage } from "@/lib/coverage";
 import { randomBytes } from "crypto";
@@ -157,7 +157,8 @@ export async function POST(request: Request) {
       .filter(Boolean)
       .join(" ")
       .trim();
-    await sendBookingEmails({
+    const baseUrl = await getTenantBaseUrl();
+    await sendBookingEmails(tenant, {
       id: booking.id,
       serviceName: service.name,
       priceCents: service.priceCents,
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
       vehicle: vehicle || null,
       notes: data.notes || null,
       cancelUrl: booking.cancelToken
-        ? buildCancelUrl(booking.id, booking.cancelToken)
+        ? buildCancelUrl(baseUrl, booking.id, booking.cancelToken)
         : null,
     });
 
