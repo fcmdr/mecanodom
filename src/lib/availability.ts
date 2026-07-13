@@ -1,6 +1,6 @@
 import { fromZonedTime } from "date-fns-tz";
 import { formatInTimeZone } from "date-fns-tz";
-import { prisma } from "./prisma";
+import type { TenantDb } from "./tenant-db";
 import { TIME_ZONE } from "./utils";
 
 export type Slot = {
@@ -60,17 +60,20 @@ function weekdayFromKey(dateKey: string): number {
 
 /**
  * Calcule les créneaux disponibles pour une date locale donnée et une prestation.
+ * @param db Client Prisma scopé sur le tenant courant (injection de dépendance :
+ *           le filtre tenantId est appliqué automatiquement à chaque requête).
  * @param dateKey Date locale (Europe/Paris) au format "YYYY-MM-DD".
  * @param service Prestation (au moins durationMin).
  * @param now Instant courant (injectable pour les tests).
  */
 export async function computeSlotsForDate(
+  db: TenantDb,
   dateKey: string,
   service: ServiceLike,
   now: Date = new Date(),
 ): Promise<AvailabilityResult> {
   const settings =
-    (await prisma.bookingSettings.findUnique({ where: { id: 1 } })) ?? {
+    (await db.bookingSettings.findFirst()) ?? {
       slotStepMin: 30,
       bufferMin: 0,
       minLeadHours: 12,
@@ -95,7 +98,7 @@ export async function computeSlotsForDate(
   // 2. Jour bloqué exceptionnellement
   const [y, m, d] = dateKey.split("-").map(Number);
   const blockedDate = new Date(Date.UTC(y, m - 1, d));
-  const blocked = await prisma.blockedDate.findUnique({
+  const blocked = await db.blockedDate.findFirst({
     where: { date: blockedDate },
   });
   if (blocked) {
@@ -104,7 +107,7 @@ export async function computeSlotsForDate(
 
   // 3. Horaires de travail du jour
   const weekday = weekdayFromKey(dateKey);
-  const windows = await prisma.workingHours.findMany({
+  const windows = await db.workingHours.findMany({
     where: { weekday, isActive: true },
     orderBy: { startTime: "asc" },
   });
@@ -115,7 +118,7 @@ export async function computeSlotsForDate(
   // 5. Réservations existantes du jour (pour exclure les chevauchements)
   const dayStartUtc = parisWallClockToUtc(dateKey, 0);
   const nextDayStartUtc = new Date(dayStartUtc.getTime() + 24 * 60 * 60 * 1000);
-  const existing = await prisma.booking.findMany({
+  const existing = await db.booking.findMany({
     where: {
       status: { in: ["PENDING", "CONFIRMED"] },
       startAt: { gte: dayStartUtc, lt: nextDayStartUtc },

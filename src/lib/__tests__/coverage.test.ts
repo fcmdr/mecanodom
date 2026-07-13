@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    coverageZone: { findUnique: vi.fn() },
-  },
-}));
-
 import { checkCoverage, normalizePostalCode } from "@/lib/coverage";
-import { prisma } from "@/lib/prisma";
+import type { TenantDb } from "@/lib/tenant-db";
 
-const zoneMock = vi.mocked(prisma.coverageZone.findUnique);
+// db scopé injecté (DI) : stub avec la seule méthode lue par checkCoverage.
+const zoneMock = vi.fn();
+const db = {
+  coverageZone: { findFirst: zoneMock },
+} as unknown as TenantDb;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -32,7 +29,7 @@ describe("normalizePostalCode", () => {
 
 describe("checkCoverage", () => {
   it("rejette une longueur invalide sans requête", async () => {
-    const res = await checkCoverage("750");
+    const res = await checkCoverage(db, "750");
     expect(res.covered).toBe(false);
     expect(zoneMock).not.toHaveBeenCalled();
   });
@@ -42,8 +39,8 @@ describe("checkCoverage", () => {
       postalCode: "75001",
       city: "Paris",
       isActive: true,
-    } as never);
-    const res = await checkCoverage("75001");
+    });
+    const res = await checkCoverage(db, "75001");
     expect(res.covered).toBe(true);
     expect(res.city).toBe("Paris");
   });
@@ -53,14 +50,14 @@ describe("checkCoverage", () => {
       postalCode: "75001",
       city: "Paris",
       isActive: false,
-    } as never);
-    const res = await checkCoverage("75001");
+    });
+    const res = await checkCoverage(db, "75001");
     expect(res.covered).toBe(false);
   });
 
   it("ne couvre pas un code introuvable", async () => {
-    zoneMock.mockResolvedValue(null as never);
-    const res = await checkCoverage("99999");
+    zoneMock.mockResolvedValue(null);
+    const res = await checkCoverage(db, "99999");
     expect(res.covered).toBe(false);
   });
 });
