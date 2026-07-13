@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, getSiteConfig } from "@/lib/tenant";
 import { MapSection } from "@/components/MapSection";
 import { CoverageChecker } from "@/components/CoverageChecker";
 
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 
 export default async function ZonePage() {
   const { db } = await getTenantContext();
+  const site = await getSiteConfig();
   const zones = await db.coverageZone.findMany({
     where: { isActive: true },
     orderBy: { postalCode: "asc" },
@@ -29,7 +30,10 @@ export default async function ZonePage() {
       </header>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
-        <MapSection />
+        <MapSection
+          center={[site.mapCenter.lat, site.mapCenter.lng]}
+          siteName={site.name}
+        />
 
         <div className="space-y-6">
           <CoverageChecker />

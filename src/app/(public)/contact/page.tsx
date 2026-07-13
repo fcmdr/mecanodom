@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { siteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/tenant";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -8,7 +8,8 @@ export const metadata: Metadata = {
     "Contactez notre service de mécanique automobile à domicile par téléphone ou email.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const site = await getSiteConfig();
   return (
     <div className="container-page py-12">
       <header className="mx-auto max-w-2xl text-center">
@@ -22,18 +23,18 @@ export default function ContactPage() {
       </header>
 
       <div className="mx-auto mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
-        <a href={siteConfig.phoneHref} className="card p-6 hover:border-brand">
+        <a href={site.phoneHref} className="card p-6 hover:border-brand">
           <h2 className="font-semibold text-slate-900">Téléphone</h2>
           <p className="mt-2 text-lg font-bold text-brand">
-            {siteConfig.phone}
+            {site.phone}
           </p>
-          <p className="mt-1 text-sm text-slate-600">{siteConfig.hoursSummary}</p>
+          <p className="mt-1 text-sm text-slate-600">{site.hoursSummary}</p>
         </a>
 
-        <a href={siteConfig.emailHref} className="card p-6 hover:border-brand">
+        <a href={site.emailHref} className="card p-6 hover:border-brand">
           <h2 className="font-semibold text-slate-900">Email</h2>
           <p className="mt-2 text-lg font-bold text-brand">
-            {siteConfig.email}
+            {site.email}
           </p>
           <p className="mt-1 text-sm text-slate-600">Réponse sous 24–48h</p>
         </a>

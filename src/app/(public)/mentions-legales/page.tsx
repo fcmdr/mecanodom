@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import { siteConfig, legalConfig } from "@/lib/site";
+import { legalConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/tenant";
 
-export const metadata: Metadata = {
-  title: "Mentions légales",
-  description: `Mentions légales du site ${siteConfig.name}.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteConfig();
+  return {
+    title: "Mentions légales",
+    description: `Mentions légales du site ${site.name}.`,
+  };
+}
 
 function Section({
   title,
@@ -23,7 +27,8 @@ function Section({
   );
 }
 
-export default function MentionsLegalesPage() {
+export default async function MentionsLegalesPage() {
+  const site = await getSiteConfig();
   return (
     <div className="container-page py-12">
       <div className="mx-auto max-w-2xl">
@@ -36,7 +41,7 @@ export default function MentionsLegalesPage() {
 
         <Section title="Éditeur du site">
           <p>
-            Le site <strong>{siteConfig.name}</strong> est édité par :
+            Le site <strong>{site.name}</strong> est édité par :
           </p>
           <p>{legalConfig.companyName}</p>
           <p>Forme juridique : {legalConfig.legalForm}</p>
@@ -46,14 +51,14 @@ export default function MentionsLegalesPage() {
           <p>Siège social : {legalConfig.registeredAddress}</p>
           <p>
             Téléphone :{" "}
-            <a href={siteConfig.phoneHref} className="text-brand">
-              {siteConfig.phone}
+            <a href={site.phoneHref} className="text-brand">
+              {site.phone}
             </a>
           </p>
           <p>
             Email :{" "}
-            <a href={siteConfig.emailHref} className="text-brand">
-              {siteConfig.email}
+            <a href={site.emailHref} className="text-brand">
+              {site.email}
             </a>
           </p>
         </Section>
@@ -85,7 +90,7 @@ export default function MentionsLegalesPage() {
 
         <Section title="Responsabilité">
           <p>
-            {siteConfig.name} s'efforce d'assurer l'exactitude des informations
+            {site.name} s'efforce d'assurer l'exactitude des informations
             diffusées (notamment les tarifs et disponibilités), sans garantie
             qu'elles soient exemptes d'erreurs. Les informations sont fournies à
             titre indicatif et peuvent être modifiées à tout moment. Un
@@ -108,8 +113,8 @@ export default function MentionsLegalesPage() {
         <Section title="Contact">
           <p>
             Pour toute question relative au site, vous pouvez nous écrire à{" "}
-            <a href={siteConfig.emailHref} className="text-brand">
-              {siteConfig.email}
+            <a href={site.emailHref} className="text-brand">
+              {site.email}
             </a>
             .
           </p>

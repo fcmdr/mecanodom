@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { getTenantContext } from "@/lib/tenant";
-import { siteConfig } from "@/lib/site";
+import { getTenantContext, getSiteConfig } from "@/lib/tenant";
 import { formatPrice, formatDuration } from "@/lib/utils";
 
 export default async function HomePage() {
   const { db } = await getTenantContext();
+  const site = await getSiteConfig();
   const featured = await db.service.findMany({
     where: { isActive: true },
     orderBy: [{ category: { order: "asc" } }, { order: "asc" }],
@@ -59,13 +59,13 @@ export default async function HomePage() {
         <div className="container-page relative grid gap-8 py-20 lg:grid-cols-2 lg:py-28">
           <div className="flex flex-col justify-center">
             <span className="inline-flex w-fit items-center rounded-full bg-brand/20 px-3 py-1 text-sm font-medium text-brand-light">
-              {siteConfig.tagline}
+              {site.tagline}
             </span>
             <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl">
               L'entretien de votre voiture, sans quitter chez vous
             </h1>
             <p className="mt-5 max-w-lg text-lg text-slate-300">
-              {siteConfig.description}
+              {site.description}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/rendez-vous" className="btn-primary text-base">
@@ -79,7 +79,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <p className="mt-6 text-sm text-slate-400">
-              {siteConfig.hoursSummary} · {siteConfig.phone}
+              {site.hoursSummary} · {site.phone}
             </p>
           </div>
 

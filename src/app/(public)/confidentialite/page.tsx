@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import { siteConfig, legalConfig } from "@/lib/site";
+import { legalConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/tenant";
 
-export const metadata: Metadata = {
-  title: "Politique de confidentialité",
-  description: `Politique de confidentialité et protection des données personnelles du site ${siteConfig.name}.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteConfig();
+  return {
+    title: "Politique de confidentialité",
+    description: `Politique de confidentialité et protection des données personnelles du site ${site.name}.`,
+  };
+}
 
 function Section({
   title,
@@ -23,7 +27,8 @@ function Section({
   );
 }
 
-export default function ConfidentialitePage() {
+export default async function ConfidentialitePage() {
+  const site = await getSiteConfig();
   return (
     <div className="container-page py-12">
       <div className="mx-auto max-w-2xl">
@@ -35,7 +40,7 @@ export default function ConfidentialitePage() {
         </p>
 
         <p className="mt-6 text-sm leading-relaxed text-slate-600">
-          La présente politique décrit la manière dont {siteConfig.name} collecte
+          La présente politique décrit la manière dont {site.name} collecte
           et traite vos données personnelles, conformément au Règlement Général
           sur la Protection des Données (RGPD) et à la loi Informatique et
           Libertés.
@@ -92,7 +97,7 @@ export default function ConfidentialitePage() {
 
         <Section title="Destinataires des données">
           <p>
-            Vos données sont destinées exclusivement à {siteConfig.name} pour la
+            Vos données sont destinées exclusivement à {site.name} pour la
             gestion des rendez-vous. Elles peuvent être traitées par nos
             prestataires techniques (hébergeur, service d'envoi d'e-mails) agissant
             en tant que sous-traitants, uniquement pour le fonctionnement du
@@ -115,8 +120,8 @@ export default function ConfidentialitePage() {
             Conformément au RGPD, vous disposez d'un droit d'accès, de
             rectification, d'effacement, de limitation, d'opposition et de
             portabilité de vos données. Pour exercer ces droits, contactez-nous à{" "}
-            <a href={siteConfig.emailHref} className="text-brand">
-              {siteConfig.email}
+            <a href={site.emailHref} className="text-brand">
+              {site.email}
             </a>
             .
           </p>
@@ -159,8 +164,8 @@ export default function ConfidentialitePage() {
           <p>
             Pour toute question relative à cette politique ou au traitement de vos
             données, écrivez-nous à{" "}
-            <a href={siteConfig.emailHref} className="text-brand">
-              {siteConfig.email}
+            <a href={site.emailHref} className="text-brand">
+              {site.email}
             </a>
             .
           </p>

@@ -2,24 +2,25 @@
 
 import { MapContainer, TileLayer, Circle, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { siteConfig } from "@/lib/site";
 
 type CoverageMapProps = {
+  /** Centre de la carte [lat, lng] (fourni par le composant serveur parent). */
+  center: [number, number];
+  /** Nom du tenant, affiché dans la popup. */
+  siteName: string;
   /** Rayon de couverture en mètres. */
   radiusMeters?: number;
 };
 
 /**
  * Carte OpenStreetMap avec un cercle représentant la zone d'intervention.
- * MVP : cercle autour du centre défini dans siteConfig (voir plan).
+ * Le centre et le nom proviennent du tenant (props), pas d'une config statique.
  */
 export default function CoverageMap({
+  center,
+  siteName,
   radiusMeters = 15000,
 }: CoverageMapProps) {
-  const center: [number, number] = [
-    siteConfig.mapCenter.lat,
-    siteConfig.mapCenter.lng,
-  ];
 
   return (
     <MapContainer
@@ -43,7 +44,7 @@ export default function CoverageMap({
         }}
       >
         <Popup>
-          Zone d'intervention approximative de {siteConfig.name}.
+          Zone d'intervention approximative de {siteName}.
         </Popup>
       </Circle>
     </MapContainer>

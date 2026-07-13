@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { siteConfig } from "@/lib/site";
+import { getSiteConfig } from "@/lib/tenant";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: `${siteConfig.name} — ${siteConfig.tagline}`,
-    template: `%s · ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteConfig();
+  return {
+    title: {
+      default: `${site.name} — ${site.tagline}`,
+      template: `%s · ${site.name}`,
+    },
+    description: site.description,
+  };
+}
 
 export default function RootLayout({
   children,

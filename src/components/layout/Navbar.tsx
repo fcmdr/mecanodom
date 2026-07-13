@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { navLinks, siteConfig } from "@/lib/site";
+import { navLinks } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export function Navbar() {
+export function Navbar({ siteName }: { siteName: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -18,7 +18,7 @@ export function Navbar() {
             M
           </span>
           <span className="text-lg font-bold tracking-tight text-slate-900">
-            {siteConfig.name}
+            {siteName}
           </span>
         </Link>
 

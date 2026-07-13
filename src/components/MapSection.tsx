@@ -12,10 +12,15 @@ const CoverageMap = dynamic(() => import("./CoverageMap"), {
   ),
 });
 
-export function MapSection() {
+type MapSectionProps = {
+  center: [number, number];
+  siteName: string;
+};
+
+export function MapSection({ center, siteName }: MapSectionProps) {
   return (
     <div className="h-[420px] w-full overflow-hidden rounded-xl border border-slate-200">
-      <CoverageMap />
+      <CoverageMap center={center} siteName={siteName} />
     </div>
   );
 }
