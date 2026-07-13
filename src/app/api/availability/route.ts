@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { computeSlotsForDate } from "@/lib/availability";
 
 // GET /api/availability?serviceId=1&date=2025-05-05
@@ -21,7 +21,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const service = await prisma.service.findUnique({
+  const { db } = await getTenantContext();
+  const service = await db.service.findUnique({
     where: { id: serviceId },
     select: { id: true, durationMin: true, isActive: true },
   });
@@ -33,6 +34,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const result = await computeSlotsForDate(date, service);
+  const result = await computeSlotsForDate(db, date, service);
   return NextResponse.json(result);
 }

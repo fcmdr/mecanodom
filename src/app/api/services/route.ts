@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 
 // GET /api/services : liste des prestations actives groupées par catégorie
 export async function GET() {
-  const categories = await prisma.serviceCategory.findMany({
+  const { db } = await getTenantContext();
+  const categories = await db.serviceCategory.findMany({
     orderBy: { order: "asc" },
     include: {
       services: {

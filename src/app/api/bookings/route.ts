@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant";
 import { bookingCreateSchema } from "@/lib/validators";
 import { checkCoverage } from "@/lib/coverage";
 import { randomBytes } from "crypto";
@@ -58,8 +58,11 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
+  // Tenant courant + client Prisma scopé (tenantId injecté automatiquement)
+  const { db } = await getTenantContext();
+
   // 2. Re-vérification de la couverture côté serveur
-  const coverage = await checkCoverage(data.postalCode);
+  const coverage = await checkCoverage(db, data.postalCode);
   if (!coverage.covered) {
     return NextResponse.json(
       { error: "Nous n'intervenons pas dans cette zone (code postal)." },
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
   }
 
   // 3. Chargement de la prestation
-  const service = await prisma.service.findUnique({
+  const service = await db.service.findUnique({
     where: { id: data.serviceId },
     select: {
       id: true,
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
 
   // 4. Re-validation que le créneau est bien proposé (horaires, délai, fenêtre)
   const dateKey = toParisDateKey(startUtc);
-  const availability = await computeSlotsForDate(dateKey, service);
+  const availability = await computeSlotsForDate(db, dateKey, service);
   const isValidSlot = availability.slots.some(
     (s) => new Date(s.startUtc).getTime() === startUtc.getTime(),
   );
@@ -106,12 +109,10 @@ export async function POST(request: Request) {
 
   // 5. Création en transaction avec anti double-réservation (re-check chevauchement)
   try {
-    const settings = await prisma.bookingSettings.findUnique({
-      where: { id: 1 },
-    });
+    const settings = await db.bookingSettings.findFirst();
     const bufferMs = (settings?.bufferMin ?? 0) * 60 * 1000;
 
-    const booking = await prisma.$transaction(async (tx) => {
+    const booking = await db.$transaction(async (tx) => {
       const overlap = await tx.booking.findFirst({
         where: {
           status: { in: ["PENDING", "CONFIRMED"] },

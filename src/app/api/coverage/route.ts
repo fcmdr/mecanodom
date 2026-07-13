@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getTenantContext } from "@/lib/tenant";
 import { checkCoverage } from "@/lib/coverage";
 
 // GET /api/coverage?postalCode=75001
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const result = await checkCoverage(postalCode);
+  const { db } = await getTenantContext();
+  const result = await checkCoverage(db, postalCode);
   return NextResponse.json(result);
 }

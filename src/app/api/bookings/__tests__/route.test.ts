@@ -11,12 +11,18 @@ vi.mock("next/server", () => ({
   },
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    service: { findUnique: vi.fn() },
-    bookingSettings: { findUnique: vi.fn() },
-    $transaction: vi.fn(),
-  },
+// db scopé sur le tenant, exposé par getTenantContext().
+const serviceMock = vi.fn();
+const settingsMock = vi.fn();
+const txMock = vi.fn();
+const scopedDb = {
+  service: { findUnique: serviceMock },
+  bookingSettings: { findFirst: settingsMock },
+  $transaction: txMock,
+};
+
+vi.mock("@/lib/tenant", () => ({
+  getTenantContext: vi.fn(async () => ({ tenant: { id: 1 }, db: scopedDb })),
 }));
 
 vi.mock("@/lib/coverage", () => ({ checkCoverage: vi.fn() }));
@@ -34,12 +40,8 @@ vi.mock("@/lib/rate-limit", () => ({
 import { POST } from "@/app/api/bookings/route";
 import { computeSlotsForDate } from "@/lib/availability";
 import { checkCoverage } from "@/lib/coverage";
-import { prisma } from "@/lib/prisma";
 import { sendBookingEmails } from "@/lib/mail";
 
-const serviceMock = vi.mocked(prisma.service.findUnique);
-const settingsMock = vi.mocked(prisma.bookingSettings.findUnique);
-const txMock = vi.mocked(prisma.$transaction);
 const coverageMock = vi.mocked(checkCoverage);
 const slotsMock = vi.mocked(computeSlotsForDate);
 const mailMock = vi.mocked(sendBookingEmails);
