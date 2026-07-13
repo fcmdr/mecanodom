@@ -8,6 +8,7 @@ const SESSION_TTL = "8h";
 export type SessionPayload = JWTPayload & {
   email: string;
   role: "admin";
+  tenantId: number;
 };
 
 function getSecret(): Uint8Array {
@@ -21,8 +22,11 @@ function getSecret(): Uint8Array {
 }
 
 /** Crée un JWT de session signé (expire après 8h). */
-export async function createSessionToken(email: string): Promise<string> {
-  return new SignJWT({ email, role: "admin" })
+export async function createSessionToken(
+  email: string,
+  tenantId: number,
+): Promise<string> {
+  return new SignJWT({ email, role: "admin", tenantId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_TTL)

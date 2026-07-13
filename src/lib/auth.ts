@@ -31,8 +31,11 @@ export async function verifyCredentials(
 }
 
 /** Crée le cookie de session admin. */
-export async function createSession(email: string): Promise<void> {
-  const token = await createSessionToken(email);
+export async function createSession(
+  email: string,
+  tenantId: number,
+): Promise<void> {
+  const token = await createSessionToken(email, tenantId);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,

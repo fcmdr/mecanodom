@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loginSchema } from "@/lib/validators";
 import { verifyCredentials, createSession } from "@/lib/auth";
+import { getCurrentTenant } from "@/lib/tenant";
 
 // POST /api/auth/login
 export async function POST(request: Request) {
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
     );
   }
 
-  await createSession(email);
+  // Auth encore basée sur l'env (pas encore sur la table AdminUser) : on rattache
+  // la session au tenant courant (résolu par domaine / slug par défaut).
+  const tenant = await getCurrentTenant();
+  await createSession(email, tenant.id);
   return NextResponse.json({ ok: true });
 }
