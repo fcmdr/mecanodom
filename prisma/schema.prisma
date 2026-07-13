@@ -1,7 +1,8 @@
-// Schéma Prisma — Mécanicien à domicile
-// Docs: https://pris.ly/d/prisma-schema
-// Base : PostgreSQL. Les statuts de réservation sont des String validées côté app
-// (portabilité et simplicité ; pas d'enum natif pour éviter les migrations lourdes).
+// Schéma Prisma — Mécanicien à domicile (multi-tenant ready)
+// Base : PostgreSQL. Les statuts de réservation sont des String validées côté app.
+//
+// Principe : chaque table métier porte un tenantId. L'unicité fonctionnelle
+// (slug, code postal, date bloquée) devient composite avec le tenant.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,22 +13,73 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------------------------------------------------------------------
+// Tenant : un client de la plateforme (un mécanicien / une entreprise)
+// Remplace progressivement les constantes de src/lib/site.ts et les env
+// MAIL_FROM / MAIL_ADMIN / APP_URL.
+// ---------------------------------------------------------------------------
+model Tenant {
+  id       Int     @id @default(autoincrement())
+  slug     String  @unique // "mecanodom" — identifiant stable (sous-domaine futur)
+  domain   String? @unique // domaine custom futur, ex. "mecanodom.fr"
+  isActive Boolean @default(true)
+
+  // Identité publique (ex-siteConfig)
+  name         String // "MécanoDom"
+  tagline      String? // "Votre mécanicien à domicile"
+  description  String?
+  phone        String? // "01 23 45 67 89"
+  email        String? // "contact@mecanodom.fr"
+  address      String? // "Île-de-France"
+  hoursSummary String? // "Lun–Ven 8h–18h · Sam 9h–13h"
+  mapCenterLat Float? // centre par défaut de la carte
+  mapCenterLng Float?
+
+  // E-mails & liens
+  notificationEmail String? // destinataire des alertes (ex-MAIL_ADMIN)
+  mailFromName      String? // nom d'expéditeur (ex-MAIL_FROM)
+  baseUrl           String? // URL publique pour les liens e-mail (ex-APP_URL)
+
+  // Mentions légales (ex-legalConfig) — optionnel : peut rester en config fichier
+  legalCompanyName String?
+  legalSiret       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories      ServiceCategory[]
+  services        Service[]
+  workingHours    WorkingHours[]
+  blockedDates    BlockedDate[]
+  bookingSettings BookingSettings?
+  coverageZones   CoverageZone[]
+  bookings        Booking[]
+  adminUsers      AdminUser[]
+}
+
 model ServiceCategory {
   id        Int       @id @default(autoincrement())
+  tenantId  Int
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
-  slug      String    @unique
+  slug      String
   order     Int       @default(0)
   services  Service[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@unique([tenantId, slug]) // le slug n'est unique QUE dans le tenant
+  @@index([tenantId])
 }
 
 model Service {
   id          Int             @id @default(autoincrement())
+  tenantId    Int
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  priceCents  Int             // prix en centimes pour éviter les flottants
-  durationMin Int             // durée de la prestation en minutes
+  priceCents  Int // prix en centimes pour éviter les flottants
+  durationMin Int // durée de la prestation en minutes
   categoryId  Int
   category    ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   isActive    Boolean         @default(true)
@@ -37,29 +89,40 @@ model Service {
   updatedAt   DateTime        @updatedAt
 
   @@index([categoryId])
+  @@index([tenantId])
 }
 
 model WorkingHours {
   id        Int      @id @default(autoincrement())
-  weekday   Int      // 0 = dimanche ... 6 = samedi
-  startTime String   // "HH:MM"
-  endTime   String   // "HH:MM"
+  tenantId  Int
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  weekday   Int // 0 = dimanche ... 6 = samedi
+  startTime String // "HH:MM"
+  endTime   String // "HH:MM"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([weekday])
+  @@index([tenantId])
 }
 
 model BlockedDate {
   id        Int      @id @default(autoincrement())
-  date      DateTime @unique // jour off exceptionnel (minuit UTC)
+  tenantId  Int
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date      DateTime // jour off exceptionnel (minuit UTC)
   reason    String?
   createdAt DateTime @default(now())
+
+  @@unique([tenantId, date]) // un même jour peut être bloqué chez A et libre chez B
+  @@index([tenantId])
 }
 
 model BookingSettings {
-  id             Int      @id @default(1)
+  id             Int      @id @default(autoincrement())
+  tenantId       Int      @unique // un (et un seul) réglage par tenant — remplace le singleton id=1
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   slotStepMin    Int      @default(30)
   bufferMin      Int      @default(0)
   minLeadHours   Int      @default(12)
@@ -69,20 +132,27 @@ model BookingSettings {
 
 model CoverageZone {
   id         Int      @id @default(autoincrement())
-  postalCode String   @unique
+  tenantId   Int
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  postalCode String
   city       String
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, postalCode]) // deux tenants peuvent couvrir le même CP
+  @@index([tenantId])
 }
 
 model Booking {
-  id            Int      @id @default(autoincrement())
-  serviceId     Int
-  service       Service  @relation(fields: [serviceId], references: [id])
-  startAt       DateTime // UTC
-  endAt         DateTime // UTC
-  status        String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | COMPLETED
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceId Int
+  service   Service  @relation(fields: [serviceId], references: [id])
+  startAt   DateTime // UTC
+  endAt     DateTime // UTC
+  status    String   @default("PENDING") // PENDING | CONFIRMED | CANCELLED | COMPLETED
 
   // Infos client
   customerName  String
@@ -90,32 +160,37 @@ model Booking {
   customerPhone String
 
   // Véhicule
-  vehicleMake   String?
-  vehicleModel  String?
-  vehicleYear   Int?
-  vehiclePlate  String?
+  vehicleMake  String?
+  vehicleModel String?
+  vehicleYear  Int?
+  vehiclePlate String?
 
   // Lieu d'intervention
-  address       String
-  postalCode    String
-  city          String
+  address    String
+  postalCode String
+  city       String
 
-  notes         String?
+  notes String?
 
-  // Jeton d'annulation par le client (lien envoyé par e-mail). Nullable pour les
-  // réservations créées avant l'ajout de cette fonctionnalité.
-  cancelToken   String?  @unique
+  // Jeton d'annulation par le client (lien envoyé par e-mail).
+  cancelToken String? @unique
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([startAt])
   @@index([status])
+  @@index([tenantId, startAt]) // les requêtes de dispo filtrent toujours par tenant
+  @@index([tenantId])
 }
 
 model AdminUser {
   id           Int      @id @default(autoincrement())
-  email        String   @unique
+  tenantId     Int
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String   @unique // unique GLOBALEMENT : simplifie le login (email → tenant)
   passwordHash String
   createdAt    DateTime @default(now())
+
+  @@index([tenantId])
 }

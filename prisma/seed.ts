@@ -2,15 +2,38 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const TENANT_SLUG = process.env.DEFAULT_TENANT_SLUG ?? "mecanodom";
+
 async function main() {
   console.log("Seed : démarrage...");
 
-  // 1. Paramètres de réservation (row unique id=1)
-  await prisma.bookingSettings.upsert({
-    where: { id: 1 },
+  // 0. Tenant par défaut (un seul client pour l'instant)
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: TENANT_SLUG },
     update: {},
     create: {
-      id: 1,
+      slug: TENANT_SLUG,
+      name: "MécanoDom",
+      tagline: "Votre mécanicien à domicile",
+      description:
+        "Entretien et réparation automobile à domicile en Île-de-France. Prise de rendez-vous en ligne, tarifs transparents, intervention chez vous.",
+      phone: "01 23 45 67 89",
+      email: "contact@mecanodom.fr",
+      address: "Île-de-France",
+      hoursSummary: "Lun–Ven 8h–18h · Sam 9h–13h",
+      mapCenterLat: 48.8566,
+      mapCenterLng: 2.3522,
+    },
+  });
+  const tenantId = tenant.id;
+  console.log("  ✓ Tenant par défaut");
+
+  // 1. Paramètres de réservation (un réglage par tenant)
+  await prisma.bookingSettings.upsert({
+    where: { tenantId },
+    update: {},
+    create: {
+      tenantId,
       slotStepMin: 30,
       bufferMin: 15,
       minLeadHours: 12,
@@ -113,15 +136,15 @@ async function main() {
 
   for (const cat of categories) {
     const category = await prisma.serviceCategory.upsert({
-      where: { slug: cat.slug },
+      where: { tenantId_slug: { tenantId, slug: cat.slug } },
       update: { name: cat.name, order: cat.order },
-      create: { slug: cat.slug, name: cat.name, order: cat.order },
+      create: { tenantId, slug: cat.slug, name: cat.name, order: cat.order },
     });
 
     for (const svc of cat.services) {
       // Idempotence : on cherche par nom + catégorie
       const existing = await prisma.service.findFirst({
-        where: { name: svc.name, categoryId: category.id },
+        where: { tenantId, name: svc.name, categoryId: category.id },
       });
       if (existing) {
         await prisma.service.update({
@@ -137,6 +160,7 @@ async function main() {
       } else {
         await prisma.service.create({
           data: {
+            tenantId,
             name: svc.name,
             description: svc.description,
             priceCents: svc.priceCents,
@@ -161,9 +185,11 @@ async function main() {
     { weekday: 6, startTime: "09:00", endTime: "13:00" },
   ];
 
-  // Idempotence : on réinitialise les horaires
-  await prisma.workingHours.deleteMany({});
-  await prisma.workingHours.createMany({ data: workingHours });
+  // Idempotence : on réinitialise les horaires de CE tenant uniquement
+  await prisma.workingHours.deleteMany({ where: { tenantId } });
+  await prisma.workingHours.createMany({
+    data: workingHours.map((w) => ({ ...w, tenantId })),
+  });
   console.log("  ✓ Horaires de travail");
 
   // 4. Zones de couverture
@@ -175,9 +201,9 @@ async function main() {
   ];
   for (const zone of zones) {
     await prisma.coverageZone.upsert({
-      where: { postalCode: zone.postalCode },
+      where: { tenantId_postalCode: { tenantId, postalCode: zone.postalCode } },
       update: { city: zone.city, isActive: true },
-      create: { ...zone, isActive: true },
+      create: { ...zone, tenantId, isActive: true },
     });
   }
   console.log("  ✓ Zones de couverture");
@@ -186,9 +212,9 @@ async function main() {
   const nextYear = new Date().getUTCFullYear() + 1;
   const blocked = new Date(Date.UTC(nextYear, 0, 1));
   await prisma.blockedDate.upsert({
-    where: { date: blocked },
+    where: { tenantId_date: { tenantId, date: blocked } },
     update: { reason: "Jour férié (Nouvel An)" },
-    create: { date: blocked, reason: "Jour férié (Nouvel An)" },
+    create: { tenantId, date: blocked, reason: "Jour férié (Nouvel An)" },
   });
   console.log("  ✓ Jour bloqué exemple");
 
